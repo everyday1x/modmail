@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '2.0.3'
+__version__ = '2.0.4'
 
 import asyncio
 import textwrap
@@ -120,10 +120,14 @@ class ModmailBot(commands.Bot):
             return self.guild
         else:
             return discord.utils.get(self.guilds, id=int(modmail_guild_id))
+    
+    @property
+    def using_multiple_server_setup(self):
+        return self.modmail_guild != self.guild
 
     @property
     def main_category(self):
-        if self.guild:
+        if self.modmail_guild:
             return discord.utils.get(self.modmail_guild.categories, name='Mod Mail')
 
     @property
@@ -244,16 +248,15 @@ class ModmailBot(commands.Bot):
     async def on_message_delete(self, message):
         """Support for deleting linked messages"""
         if message.embeds and not isinstance(message.channel, discord.DMChannel):
-            matches = int(str(message.embeds[0].author.url).split('/')[-1])
-            if matches:
+            message_id = str(message.embeds[0].author.url).split('/')[-1]
+            if message_id.isdigit():
                 thread = await self.threads.find(channel=message.channel)
 
                 channel = thread.recipient.dm_channel
-                message_id = matches[0]
 
                 async for msg in channel.history():
                     if msg.embeds and msg.embeds[0].author:
-                        url = msg.embeds[0].author.url
+                        url = str(msg.embeds[0].author.url)
                         if message_id == url.split('/')[-1]:
                             return await msg.delete()
 
@@ -265,8 +268,8 @@ class ModmailBot(commands.Bot):
             async for msg in thread.channel.history():
                 if msg.embeds:
                     embed = msg.embeds[0]
-                    matches = embed.author.url.split('/')
-                    if matches and int(matches[-1]) == before.id:
+                    matches = str(embed.author.url).split('/')
+                    if matches and matches[-1] == str(before.id):
                         if ' - (Edited)' not in embed.footer.text:
                             embed.set_footer(text=embed.footer.text + ' - (Edited)')
                         embed.description = after.content
